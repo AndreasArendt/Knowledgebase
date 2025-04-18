@@ -31,8 +31,9 @@ for ii = 1:numel(s.timestamp)
     fac.addStep(F, B, u(ii), Q, H=H,R=diag(R),z=z(ii));    
 end
 
-[x_est, sigma] = fac.solve();
-
+[x_est] = fac.solve();
+% [x_est, sigma] = fac.solve();
+% [x_est, sigma, res] = fac.solve();
 
 %%
 af = afigure;
