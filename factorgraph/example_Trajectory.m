@@ -16,39 +16,39 @@ F = [1  s.dt  ; ...
 B = [0.5*s.dt^2; ...
      s.dt];
 
-C = [0 1];
+H = [0 1];
 
 % z := [X0; B*u; y]  % prior, dynamics, measurements
 Bu = reshape(B * s.imu.a__mDs2(1:end-1), [], 1); % B * u - control input
-y = s.mes.v__mDs;                                % y - Measurement
+z = s.mes.v__mDs;                                % y - Measurement
 
-z = sparse(nan(nStates + numel(Bu) + numel(y), 1));
-z(1:nStates)                   = X0; % initial state
-z(nStates+1:nStates+numel(Bu)) = Bu;
-z(nStates+numel(Bu)+1:end)     = y;
+y = sparse(nan(nStates + numel(Bu) + numel(z), 1));
+y(1:nStates)                   = X0; % initial state
+y(nStates+1:nStates+numel(Bu)) = Bu;
+y(nStates+numel(Bu)+1:end)     = z;
 
 % Final system matrix
-H_prior = sparse(zeros(nStates,nStates*k));
-H_prior(1:nStates,1:nStates) = eye(nStates);
+A_prior = sparse(zeros(nStates,nStates*k));
+A_prior(1:nStates,1:nStates) = eye(nStates);
 
-H_dyn = sparse(zeros((k-1)*nStates,k*nStates));
+A_dyn = sparse(zeros((k-1)*nStates,k*nStates));
 for r = 1:nStates:(k-1)*nStates
     idxR = r:r+nStates-1;
     idxC = r:r+nStates-1;
-    H_dyn(idxR, idxC)         = -F;
-    H_dyn(idxR, idxC+nStates) = eye(nStates);
+    A_dyn(idxR, idxC)         = -F;
+    A_dyn(idxR, idxC+nStates) = eye(nStates);
 end
 
-H_meas = sparse(zeros(numel(y),k*nStates));
+A_meas = sparse(zeros(numel(z),k*nStates));
 r_ctr = 1;
-for r = 1:nStates:numel(y)*nStates
-    H_meas(r_ctr, r:r+nStates-1) = C;
+for r = 1:nStates:numel(z)*nStates
+    A_meas(r_ctr, r:r+nStates-1) = H;
     r_ctr = r_ctr+1;
 end
 
-H = [ H_prior;
-      H_dyn;
-      H_meas];
+A = [ A_prior;
+      A_dyn;
+      A_meas];
 
 % Covariance
 P0 = diag([10, 1]);
@@ -57,16 +57,16 @@ R  = std_vel^2;
 
 P0P0 = diag(P0);
 QQ   = repmat(diag(Q), k-1, 1);
-RR   = repmat(diag(R), numel(y), 1);
+RR   = repmat(diag(R), numel(z), 1);
 
 W = sparse(diag([P0P0; QQ; RR]));
 
 % solving MAP with linear least squares
-[x_hat, Sigma_x, residuals] = estimation.lls(H, z, R=W);
+[x_hat, Sigma_x, residuals] = estimation.lls(A, y, R=W);
 
 X_est = reshape(full(x_hat), 2, [])';
 Sigma = reshape(diag(Sigma_x), nStates, [])';
-res = full(residuals(end-numel(y)+1:end));
+res = full(residuals(end-numel(z)+1:end));
 
 %%
 af = afigure;
