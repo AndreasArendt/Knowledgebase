@@ -28,10 +28,10 @@ z(nStates+1:nStates+numel(Bu)) = Bu;
 z(nStates+numel(Bu)+1:end)     = y;
 
 % Final system matrix
-H_prior = zeros(nStates,nStates*k);
+H_prior = sparse(zeros(nStates,nStates*k));
 H_prior(1:nStates,1:nStates) = eye(nStates);
 
-H_dyn = zeros((k-1)*nStates,k*nStates);
+H_dyn = sparse(zeros((k-1)*nStates,k*nStates));
 for r = 1:nStates:(k-1)*nStates
     idxR = r:r+nStates-1;
     idxC = r:r+nStates-1;
@@ -39,16 +39,16 @@ for r = 1:nStates:(k-1)*nStates
     H_dyn(idxR, idxC+nStates) = eye(nStates);
 end
 
-H_meas = zeros(numel(y),k*nStates);
+H_meas = sparse(zeros(numel(y),k*nStates));
 r_ctr = 1;
 for r = 1:nStates:numel(y)*nStates
     H_meas(r_ctr, r:r+nStates-1) = C;
     r_ctr = r_ctr+1;
 end
 
-H = sparse([ H_prior;
-             H_dyn;
-             H_meas]);
+H = [ H_prior;
+      H_dyn;
+      H_meas];
 
 % Covariance
 P0 = diag([10, 1]);
@@ -61,17 +61,11 @@ RR   = repmat(diag(R), numel(y), 1);
 
 W = sparse(diag([P0P0; QQ; RR]));
 
-% MAP
-x_hat = (H' / W * H) \ (H' / W * z);
+% solving MAP with linear least squares
+[x_hat, Sigma_x, residuals] = estimation.lls(H, z, R=W);
+
 X_est = reshape(full(x_hat), 2, [])';
-
-W_inv = diag(1 ./ diag(W));
-HWH = H' * W_inv * H;
-Sigma_x = inv(HWH); 
-
 Sigma = reshape(diag(Sigma_x), nStates, [])';
-
-residuals = H * x_hat - z;
 res = full(residuals(end-numel(y)+1:end));
 
 %%
